@@ -1,0 +1,61 @@
+name: Build Unsigned IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-ipa:
+    runs-on: macos-latest
+    steps:
+      - name: Tai ma nguon
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Cai CocoaPods (neu co)
+        run: |
+          PROJ_DIR=$(dirname "$(find . -name "Unity-iPhone.xcodeproj" -maxdepth 3 | head -n 1)")
+          cd "$PROJ_DIR"
+          if [ -f "Podfile" ]; then
+            pod install
+          fi
+
+      - name: Bien dich Xcode sang .app
+        run: |
+          PROJ_DIR=$(dirname "$(find . -name "Unity-iPhone.xcodeproj" -maxdepth 3 | head -n 1)")
+          cd "$PROJ_DIR"
+          if [ -f "Unity-iPhone.xcworkspace/contents.xcworkspacedata" ]; then
+            xcodebuild -workspace Unity-iPhone.xcworkspace \
+              -scheme Unity-iPhone \
+              -configuration Release \
+              -sdk iphoneos \
+              -derivedDataPath build_out \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY="" \
+              DEVELOPMENT_TEAM=""
+          else
+            xcodebuild -project Unity-iPhone.xcodeproj \
+              -scheme Unity-iPhone \
+              -configuration Release \
+              -sdk iphoneos \
+              -derivedDataPath build_out \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY="" \
+              DEVELOPMENT_TEAM=""
+          fi
+
+      - name: Dong goi thanh file IPA
+        run: |
+          PROJ_DIR=$(dirname "$(find . -name "Unity-iPhone.xcodeproj" -maxdepth 3 | head -n 1)")
+          cd "$PROJ_DIR"
+          mkdir -p Payload
+          cp -r build_out/Build/Products/Release-iphoneos/*.app Payload/
+          zip -r -y GameNRO_Unsigned.ipa Payload
+
+      - name: Xuat file IPA de tai ve
+        uses: actions/upload-artifact@v4
+        with:
+          name: GameNRO-IPA
+          path: "**/GameNRO_Unsigned.ipa"
